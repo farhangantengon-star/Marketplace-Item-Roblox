@@ -126,7 +126,7 @@ export const INITIAL_ITEMS: MarketplaceItem[] = [
     price: 750000,
     initialPrice: 1000,
     soldCount: 50,
-    category: 'Accessory',
+    category: 'Gear',
     imageUrl: 'https://i.ibb.co/1fWMBJnY/image.png',
   },
   {
@@ -159,7 +159,7 @@ export const INITIAL_ITEMS: MarketplaceItem[] = [
     price: 9893,
     initialPrice: 50,
     soldCount: 85000,
-    category: 'Hat',
+    category: 'Gear',
     imageUrl: 'https://i.ibb.co/n8m065HF/image.png',
   },
 
@@ -277,7 +277,7 @@ export const INITIAL_ITEMS: MarketplaceItem[] = [
     price: 31000,
     initialPrice: 31000,
     soldCount: 4500,
-    category: 'Accessory',
+    category: 'Bundle',
     imageUrl: 'https://i.ibb.co.com/SwzLdM8d/image.png',
   },
   {
