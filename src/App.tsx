@@ -43,6 +43,24 @@ import { MarketplaceItem, UserState, Transaction, InventoryItem, MarketplaceList
 import { INITIAL_ITEMS } from './data/items';
 import { ItemIcon } from './components/ItemIcon';
 import { GoogleGenAI, Type, FunctionDeclaration } from "@google/genai";
+import { 
+  db, 
+  auth, 
+  collection, 
+  doc, 
+  setDoc, 
+  getDoc,
+  updateDoc,
+  onSnapshot, 
+  query, 
+  orderBy, 
+  serverTimestamp,
+  addDoc,
+  onAuthStateChanged,
+  signInWithGoogle,
+  User as FirebaseUser,
+  testConnection
+} from './lib/firebase';
 
 // Global shim for process.env (Vercel/Production safety)
 if (typeof window !== 'undefined' && !('process' in window)) {
@@ -91,13 +109,77 @@ const LIMITED_U_LOGO = "https://i.ibb.co.com/nsP4vBMB/image.png";
 const ROBLOX_HEADER_LOGO = "https://i.ibb.co.com/QvcLwCfC/image.png";
 
 export default function App() {
-  const [items, setItems] = useState<MarketplaceItem[]>(() => {
-    const saved = localStorage.getItem('roblox_items');
-    if (saved) {
-      const savedItems = JSON.parse(saved);
+  const [currentUser, setCurrentUser] = useState<FirebaseUser | null>(null);
+  const [items, setItems] = useState<MarketplaceItem[]>([]);
+  const [isFirebaseSynced, setIsFirebaseSynced] = useState(false);
+
+  // Connection Test
+  useEffect(() => {
+    testConnection();
+  }, []);
+
+  // Auth Listener
+  useEffect(() => {
+    return onAuthStateChanged(auth, (user) => {
+      setCurrentUser(user);
+    });
+  }, []);
+
+  // Real-time Firestore Sync
+  useEffect(() => {
+    const q = query(collection(db, 'items'));
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const fbItems = snapshot.docs.map(doc => doc.data() as MarketplaceItem);
       
-      // Update categories for existing items based on INITIAL_ITEMS
-      const updatedSavedItems = savedItems.map((item: MarketplaceItem) => {
+      const targets = [5000, 2000, 1000, 300, 800, 200, 500, 400];
+      
+      // Merge INITIAL_ITEMS with items from Firestore
+      // System items (Roblox) should be merged if updated or missing in FB
+      const merged: MarketplaceItem[] = INITIAL_ITEMS.map(item => {
+        // Seeded random for stable fake stats
+        const seed = parseInt(item.id) || item.name.length;
+        const fakeLikes = Math.floor(((seed * 123) % 50000)) + 1000;
+        const fakeDislikes = Math.floor(((seed * 456) % 5000)) + 100;
+        const fakeFavs = Math.floor(((seed * 789) % 100000)) + 5000;
+        const fakeHike = targets[seed % targets.length];
+        const fakeSold = Math.floor(((seed * 321) % 5000)) + 50;
+
+        return {
+          ...item,
+          likes: fakeLikes,
+          dislikes: fakeDislikes,
+          favorites: fakeFavs,
+          hikeTarget: fakeHike,
+          soldCount: item.soldCount || fakeSold
+        };
+      });
+      
+      fbItems.forEach(fbItem => {
+        const existingIdx = merged.findIndex(it => it.id === fbItem.id);
+        if (existingIdx !== -1) {
+          // Overwrite with real data from FB, but fallback to our 'fake' stats if FB fields are missing
+          merged[existingIdx] = { 
+            ...merged[existingIdx], 
+            ...fbItem,
+            likes: fbItem.likes ?? merged[existingIdx].likes,
+            dislikes: fbItem.dislikes ?? merged[existingIdx].dislikes,
+            favorites: fbItem.favorites ?? merged[existingIdx].favorites,
+            soldCount: fbItem.soldCount ?? merged[existingIdx].soldCount
+          };
+        } else {
+          // New UGC item from FB
+          merged.push({
+            ...fbItem,
+            likes: fbItem.likes || 15,
+            dislikes: fbItem.dislikes || 0,
+            favorites: fbItem.favorites || 20,
+            soldCount: fbItem.soldCount || 5
+          });
+        }
+      });
+
+      // Update categories for existing items based on INITIAL_ITEMS (Sync force)
+      const sanitized = merged.map((item: MarketplaceItem) => {
         const originalItem = INITIAL_ITEMS.find(it => it.id === item.id);
         if (originalItem && originalItem.category !== item.category) {
           return { ...item, category: originalItem.category };
@@ -105,28 +187,13 @@ export default function App() {
         return item;
       });
 
-      // Merge new items from INITIAL_ITEMS that aren't in saved storage
-      const existingIds = new Set(updatedSavedItems.map((it: any) => it.id));
-      const newItemsToAdd = INITIAL_ITEMS.filter(it => !existingIds.has(it.id)).map(item => ({
-        ...item,
-        hikeTarget: [5000, 2000, 1000, 300, 800, 200, 500, 400][Math.floor(Math.random() * 8)],
-        likes: Math.floor(Math.random() * 50000) + 1000,
-        dislikes: Math.floor(Math.random() * 5000) + 100,
-        favorites: Math.floor(Math.random() * 100000) + 5000
-      }));
+      setItems(sanitized);
+      setIsFirebaseSynced(true);
+    });
 
-      return [...updatedSavedItems, ...newItemsToAdd];
-    }
+    return () => unsubscribe();
+  }, []);
 
-    const targets = [5000, 2000, 1000, 300, 800, 200, 500, 400];
-    return INITIAL_ITEMS.map(item => ({
-      ...item,
-      hikeTarget: targets[Math.floor(Math.random() * targets.length)],
-      likes: Math.floor(Math.random() * 50000) + 1000,
-      dislikes: Math.floor(Math.random() * 5000) + 100,
-      favorites: Math.floor(Math.random() * 100000) + 5000
-    }));
-  });
   const [user, setUser] = useState<UserState>(() => {
     const saved = localStorage.getItem('roblox_user');
     const defaultUser: UserState = {
@@ -189,6 +256,8 @@ export default function App() {
   const [chatInput, setChatInput] = useState('');
   const [isChatLoading, setIsChatLoading] = useState(false);
   
+  const [isOwnerSession, setIsOwnerSession] = useState(false);
+  
   // UGC Creation
   const [isCreateUGCModalOpen, setIsCreateUGCModalOpen] = useState(false);
   const [newUGC, setNewUGC] = useState({
@@ -199,6 +268,13 @@ export default function App() {
     category: 'Hat' as any,
     secretCode: ''
   });
+
+  // Check for owner session whenever code changes in any context
+  useEffect(() => {
+    if (newUGC.secretCode === '2006') {
+      setIsOwnerSession(true);
+    }
+  }, [newUGC.secretCode]);
 
   const BOT_NAMES = useMemo(() => [
     "Builderman", "Roblox", "Stickmasterluke", "Merely", "Loleris", 
@@ -520,7 +596,7 @@ export default function App() {
     setShowPurchaseConfirmation(true);
   };
 
-  const finalizePurchase = () => {
+  const finalizePurchase = async () => {
     if (!buyingItem) return;
     const item = buyingItem;
 
@@ -537,128 +613,148 @@ export default function App() {
       inventory: [...prev.inventory, newInvItem],
     }));
 
-    setItems(prev => prev.map(it => {
-      if (it.id === item.id) {
-        const newSoldCount = it.soldCount + 1;
-        let newPrice = it.price;
-        const isLimited = it.type === 'Limited' || it.type === 'LimitedU';
-        const hikeTarget = it.hikeTarget || 5000;
+    // Update Firestore if item exists there
+    try {
+      const itemRef = doc(db, 'items', item.id);
+      const snap = await getDoc(itemRef);
+      const newSoldCount = item.soldCount + 1;
+      let newPrice = item.price;
+      const isLimited = item.type === 'Limited' || item.type === 'LimitedU';
+      const hikeTarget = item.hikeTarget || 5000;
         
-        if (isLimited && Math.floor(newSoldCount / hikeTarget) > Math.floor(it.soldCount / hikeTarget)) {
-          newPrice = Math.floor(it.price * 1.25);
-          addNotification(`🚀 PRICE HIKE: Target ${hikeTarget.toLocaleString()} sales reached for ${it.name}!`);
-        }
-
-        return {
-          ...it,
-          soldCount: newSoldCount,
-          price: newPrice,
-          stock: it.stock !== undefined ? it.stock + 1 : it.stock // Infinite stock approach
-        };
+      if (isLimited && Math.floor(newSoldCount / hikeTarget) > Math.floor(item.soldCount / hikeTarget)) {
+        newPrice = Math.floor(item.price * 1.25);
+        addNotification(`🚀 PRICE HIKE: Target ${hikeTarget.toLocaleString()} sales reached for ${item.name}!`);
       }
-      return it;
-    }));
+
+      if (snap.exists()) {
+        await updateDoc(itemRef, {
+          soldCount: newSoldCount,
+          price: newPrice
+        });
+      } else {
+        // Fallback for local state if not in FB yet
+        setItems(prev => prev.map(it => it.id === item.id ? { ...it, soldCount: newSoldCount, price: newPrice } : it));
+      }
+    } catch (e) {
+      console.error("Firestore update error:", e);
+    }
 
     addNotification(`✅ Purchased ${item.name}!`);
     setShowPurchaseConfirmation(false);
     setBuyingItem(null);
   };
 
-  const toggleLike = (itemId: string) => {
-    setUser(prev => {
-      const isLiked = (prev.likedItems || []).includes(itemId);
-      const isDisliked = (prev.dislikedItems || []).includes(itemId);
+  const toggleLike = async (itemId: string) => {
+    const isLiked = (user.likedItems || []).includes(itemId);
+    const isDisliked = (user.dislikedItems || []).includes(itemId);
+    
+    let changeLikes = 0;
+    let changeDislikes = 0;
+    
+    if (isLiked) {
+      changeLikes = -1;
+    } else {
+      changeLikes = 1;
+      if (isDisliked) changeDislikes = -1;
+    }
+    
+    // Optimistic UI for user balance/inv
+    setUser(prev => ({
+      ...prev,
+      likedItems: isLiked ? prev.likedItems.filter(id => id !== itemId) : [...prev.likedItems, itemId],
+      dislikedItems: isDisliked ? prev.dislikedItems.filter(id => id !== itemId) : prev.dislikedItems
+    }));
+
+    // Update Firestore
+    try {
+      const itemRef = doc(db, 'items', itemId);
+      const snap = await getDoc(itemRef);
+      const currentItem = items.find(it => it.id === itemId);
       
-      let newLiked = [...(prev.likedItems || [])];
-      let newDisliked = [...(prev.dislikedItems || [])];
-      let changeLikes = 0;
-      let changeDislikes = 0;
-      
-      if (isLiked) {
-        newLiked = newLiked.filter(id => id !== itemId);
-        changeLikes = -1;
-      } else {
-        newLiked.push(itemId);
-        changeLikes = 1;
-        if (isDisliked) {
-          newDisliked = newDisliked.filter(id => id !== itemId);
-          changeDislikes = -1;
-        }
+      if (snap.exists()) {
+        const data = snap.data();
+        await updateDoc(itemRef, {
+          likes: (data.likes ?? 0) + changeLikes,
+          dislikes: (data.dislikes ?? 0) + changeDislikes
+        });
+      } else if (currentItem) {
+        await setDoc(itemRef, {
+          ...currentItem,
+          likes: (currentItem.likes ?? 0) + changeLikes,
+          dislikes: (currentItem.dislikes ?? 0) + changeDislikes
+        });
       }
-      
-      setItems(items => items.map(i => {
-        if (i.id === itemId) {
-          const newItem = { ...i, likes: (i.likes || 0) + changeLikes, dislikes: (i.dislikes || 0) + changeDislikes };
-          if (selectedItem?.id === itemId) setSelectedItem(newItem);
-          return newItem;
-        }
-        return i;
-      }));
-      
-      return { ...prev, likedItems: newLiked, dislikedItems: newDisliked };
-    });
+    } catch (e) { console.error(e); }
   };
 
-  const toggleDislike = (itemId: string) => {
-    setUser(prev => {
-      const isLiked = (prev.likedItems || []).includes(itemId);
-      const isDisliked = (prev.dislikedItems || []).includes(itemId);
-      
-      let newLiked = [...(prev.likedItems || [])];
-      let newDisliked = [...(prev.dislikedItems || [])];
-      let changeLikes = 0;
-      let changeDislikes = 0;
-      
-      if (isDisliked) {
-        newDisliked = newDisliked.filter(id => id !== itemId);
-        changeDislikes = -1;
-      } else {
-        newDisliked.push(itemId);
-        changeDislikes = 1;
-        if (isLiked) {
-          newLiked = newLiked.filter(id => id !== itemId);
-          changeLikes = -1;
-        }
+  const toggleDislike = async (itemId: string) => {
+    const isLiked = (user.likedItems || []).includes(itemId);
+    const isDisliked = (user.dislikedItems || []).includes(itemId);
+    
+    let changeLikes = 0;
+    let changeDislikes = 0;
+    
+    if (isDisliked) {
+      changeDislikes = -1;
+    } else {
+      changeDislikes = 1;
+      if (isLiked) changeLikes = -1;
+    }
+    
+    setUser(prev => ({
+      ...prev,
+      dislikedItems: isDisliked ? prev.dislikedItems.filter(id => id !== itemId) : [...prev.dislikedItems, itemId],
+      likedItems: isLiked ? prev.likedItems.filter(id => id !== itemId) : prev.likedItems
+    }));
+
+    try {
+      const itemRef = doc(db, 'items', itemId);
+      const snap = await getDoc(itemRef);
+      const currentItem = items.find(it => it.id === itemId);
+
+      if (snap.exists()) {
+        const data = snap.data();
+        await updateDoc(itemRef, {
+          likes: (data.likes ?? 0) + changeLikes,
+          dislikes: (data.dislikes ?? 0) + changeDislikes
+        });
+      } else if (currentItem) {
+        await setDoc(itemRef, {
+          ...currentItem,
+          likes: (currentItem.likes ?? 0) + changeLikes,
+          dislikes: (currentItem.dislikes ?? 0) + changeDislikes
+        });
       }
-      
-      setItems(items => items.map(i => {
-        if (i.id === itemId) {
-          const newItem = { ...i, likes: (i.likes || 0) + changeLikes, dislikes: (i.dislikes || 0) + changeDislikes };
-          if (selectedItem?.id === itemId) setSelectedItem(newItem);
-          return newItem;
-        }
-        return i;
-      }));
-      
-      return { ...prev, likedItems: newLiked, dislikedItems: newDisliked };
-    });
+    } catch (e) { console.error(e); }
   };
 
-  const toggleFavorite = (itemId: string) => {
-    setUser(prev => {
-      const isFav = (prev.favoriteItems || []).includes(itemId);
-      let newFavs = [...(prev.favoriteItems || [])];
-      let changeFavs = 0;
-      
-      if (isFav) {
-        newFavs = newFavs.filter(id => id !== itemId);
-        changeFavs = -1;
-      } else {
-        newFavs.push(itemId);
-        changeFavs = 1;
+  const toggleFavorite = async (itemId: string) => {
+    const isFav = (user.favoriteItems || []).includes(itemId);
+    let changeFavs = isFav ? -1 : 1;
+    
+    setUser(prev => ({
+      ...prev,
+      favoriteItems: isFav ? prev.favoriteItems.filter(id => id !== itemId) : [...prev.favoriteItems, itemId]
+    }));
+
+    try {
+      const itemRef = doc(db, 'items', itemId);
+      const snap = await getDoc(itemRef);
+      const currentItem = items.find(it => it.id === itemId);
+
+      if (snap.exists()) {
+        const data = snap.data();
+        await updateDoc(itemRef, {
+          favorites: (data.favorites ?? 0) + changeFavs
+        });
+      } else if (currentItem) {
+        await setDoc(itemRef, {
+          ...currentItem,
+          favorites: (currentItem.favorites ?? 0) + changeFavs
+        });
       }
-      
-      setItems(items => items.map(i => {
-        if (i.id === itemId) {
-          const newItem = { ...i, favorites: (i.favorites || 0) + changeFavs };
-          if (selectedItem?.id === itemId) setSelectedItem(newItem);
-          return newItem;
-        }
-        return i;
-      }));
-      
-      return { ...prev, favoriteItems: newFavs };
-    });
+    } catch (e) { console.error(e); }
   };
 
   const buyFromListing = (listing: MarketplaceListing) => {
@@ -826,35 +922,36 @@ export default function App() {
     }
   };
 
-  const createUGCItem = () => {
+  const createUGCItem = async () => {
     if (!newUGC.name || !newUGC.imageUrl) {
       addNotification("❌ Please fill all fields!");
       return;
     }
 
-    const isSpecialOwner = newUGC.secretCode === '22';
+    const isSpecialOwner = newUGC.secretCode === '2006';
     let price = Number(newUGC.price);
     let category = newUGC.category;
     let type = newUGC.type;
     let commissionMode: 'full' | 'trickle' = 'full';
 
-    // Enforcement: Only "22" can create anything other than T-Shirt
+    // Enforcement: Only "2006" can create anything other than T-Shirt
     if (!isSpecialOwner) {
       category = 'T-Shirt';
       type = 'Regular';
       if (price > 5000) price = 5000;
       commissionMode = 'trickle';
     } else {
-      // Owner (22) gets full commission on any price
+      // Owner (2006) gets full commission on any price
       commissionMode = 'full';
     }
 
     const hikeTargets = [200, 300, 400, 500, 800, 1000, 2000, 5000];
+    const itemId = `ugc-${Date.now()}`;
     
     const newItem: MarketplaceItem = {
-      id: `ugc-${Date.now()}`,
+      id: itemId,
       name: newUGC.name,
-      creator: isSpecialOwner ? "Official Developer" : "User",
+      creator: isSpecialOwner ? "Official Developer" : (currentUser?.displayName || "Anonymous User"),
       type: type,
       price: price,
       initialPrice: price,
@@ -872,14 +969,20 @@ export default function App() {
       isTshirt: category === 'T-Shirt'
     };
 
-    setItems(prev => [newItem, ...prev]);
-    setIsCreateUGCModalOpen(false);
-    setNewUGC({ name: '', imageUrl: '', price: 100, type: 'Regular', category: 'T-Shirt', secretCode: '' });
-    
-    if (!isSpecialOwner) {
-      addNotification("👕 T-SHIRT PUBLISHED: Standard user quota applied.");
-    } else {
-      addNotification(`👑 ${category.toUpperCase()} CREATED: Developer access granted!`);
+    // Save to Firestore for multi-user visibility
+    try {
+      await setDoc(doc(db, 'items', itemId), newItem);
+      setIsCreateUGCModalOpen(false);
+      setNewUGC({ name: '', imageUrl: '', price: 100, type: 'Regular', category: 'T-Shirt', secretCode: '' });
+      
+      if (!isSpecialOwner) {
+        addNotification("👕 T-SHIRT PUBLISHED: Standard user quota applied.");
+      } else {
+        addNotification(`👑 ${category.toUpperCase()} CREATED: Developer access granted!`);
+      }
+    } catch (e) {
+      console.error("Firestore create error:", e);
+      addNotification("❌ Error publishing to marketplace.");
     }
   };
 
@@ -1151,7 +1254,25 @@ export default function App() {
             </div>
           </div>
           <Settings className="w-5 h-5 cursor-pointer hover:opacity-80" />
-          <div className="w-8 h-8 rounded-full bg-brand-neon flex items-center justify-center text-black font-black text-xs cursor-pointer">UA</div>
+          {!currentUser ? (
+            <button 
+              onClick={signInWithGoogle}
+              className="bg-white/10 hover:bg-white/20 text-white px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest transition-all border border-white/20"
+            >
+              Login
+            </button>
+          ) : (
+            <div 
+              className="w-8 h-8 rounded-full bg-brand-neon flex items-center justify-center text-black font-black text-xs cursor-pointer overflow-hidden border-2 border-white/20 shadow-md"
+              title={currentUser.displayName || 'User'}
+            >
+              {currentUser.photoURL ? (
+                <img src={currentUser.photoURL} alt="Avatar" className="w-full h-full object-cover" />
+              ) : (
+                <span>{(currentUser.displayName || 'U')[0].toUpperCase()}</span>
+              )}
+            </div>
+          )}
         </div>
       </div>
     </header>
@@ -1641,6 +1762,7 @@ export default function App() {
                       onBuy={() => buyItem(item)} 
                       onClick={(it) => setSelectedItem(it)}
                       owned={item.type === 'Regular' && user.inventory.some(inv => inv.itemId === item.id)}
+                      isOwnerSession={isOwnerSession}
                     />
                   ))}
                 </AnimatePresence>
@@ -2077,7 +2199,7 @@ export default function App() {
                 <div className="flex items-center gap-2">
                   <Package className="text-brand-neon" />
                   <h3 className="font-black uppercase tracking-tighter text-xl italic flex items-center gap-1">
-                    {newUGC.secretCode === '22' ? 'DEVELOPER' : 'USER'} <span className="text-brand-neon">CREATION</span>
+                    {newUGC.secretCode === '2006' ? 'DEVELOPER' : 'USER'} <span className="text-brand-neon">CREATION</span>
                   </h3>
                 </div>
                 <button onClick={() => setIsCreateUGCModalOpen(false)} className="hover:rotate-90 transition-transform">
@@ -2100,7 +2222,7 @@ export default function App() {
                 <div className="grid grid-cols-2 gap-4">
                    <div className="space-y-1.5">
                     <label className="text-[10px] font-black text-brand-dim uppercase">Active Category</label>
-                    {newUGC.secretCode === '22' ? (
+                    {newUGC.secretCode === '2006' ? (
                       <select 
                         value={newUGC.category}
                         onChange={(e) => setNewUGC({...newUGC, category: e.target.value as any})}
@@ -2196,7 +2318,7 @@ export default function App() {
                    />
                 </div>
 
-                {newUGC.secretCode !== '22' && (
+                {newUGC.secretCode !== '2006' && (
                   <div className="p-3 bg-brand-neon/5 border border-brand-neon/20 rounded-lg space-y-1">
                     <p className="text-[10px] font-black text-brand-neon uppercase tracking-tighter">⚠️ PUBLIC WEB VIEW (1 OPTION)</p>
                     <p className="text-[9px] text-brand-dim font-bold leading-tight">
@@ -2206,11 +2328,11 @@ export default function App() {
                   </div>
                 )}
                 
-                {newUGC.secretCode === '22' && (
+                {newUGC.secretCode === '2006' && (
                   <div className="p-3 bg-green-50 border border-green-200 rounded-lg space-y-1">
                     <p className="text-[10px] font-black text-green-600 uppercase tracking-tighter">👑 OWNER MODE (2 PATHS ACTIVE)</p>
                     <p className="text-[9px] text-green-700 font-bold leading-tight">
-                      You can create both **T-Shirts** and **UGC Items**. No price caps or commission trickle!
+                      Welcome back, Owner. Multi-user database syncing is active!
                     </p>
                   </div>
                 )}
@@ -2219,12 +2341,12 @@ export default function App() {
                    <button 
                     onClick={createUGCItem}
                     className={`w-full py-4 font-black rounded-lg transition-all uppercase italic tracking-widest text-lg ${
-                      newUGC.secretCode === '22' 
+                      newUGC.secretCode === '2006' 
                         ? 'bg-green-600 text-white shadow-[0_4px_0_#054322] hover:shadow-[0_6px_0_#054322]' 
                         : 'bg-brand-neon text-white shadow-[0_4px_0_#008444] hover:shadow-[0_6px_0_#008444]'
                     } hover:translate-y-[-2px] active:translate-y-[2px] active:shadow-none`}
                    >
-                     {newUGC.secretCode === '22' ? 'MINT DEVELOPER ITEM' : 'MINT T-SHIRT'}
+                     {newUGC.secretCode === '2006' ? 'MINT DEVELOPER ITEM' : 'MINT T-SHIRT'}
                    </button>
                 </div>
               </div>
@@ -2488,11 +2610,13 @@ const ItemCard: React.FC<{
   onBuy: () => void; 
   onClick: (item: MarketplaceItem) => void;
   owned: boolean;
+  isOwnerSession: boolean;
 }> = ({ 
   item, 
   onBuy, 
   onClick,
-  owned 
+  owned,
+  isOwnerSession
 }) => {
   const isLimited = item.type === 'Limited' || item.type === 'LimitedU';
 

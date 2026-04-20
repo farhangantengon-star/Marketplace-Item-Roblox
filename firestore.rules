@@ -1,0 +1,85 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // ----------------------------------------------------
+    // GLOBAL HELPERS
+    // ----------------------------------------------------
+    function isSignedIn() { return request.auth != null; }
+    function isValidId(id) { return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$'); }
+    function incoming() { return request.resource.data; }
+    function existing() { return resource.data; }
+    
+    // Admin check - logic requires an admin document for security
+    function isAdmin() { 
+       return isSignedIn() && exists(/databases/$(database)/documents/admins/$(request.auth.uid));
+    }
+
+    // Default deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // ----------------------------------------------------
+    // REUSABLE PILLARS
+    // ----------------------------------------------------
+
+    // ITEM VALIDATION
+    function isValidItem(data) {
+      return data.size() >= 5 && data.size() <= 20
+        && data.id is string && data.id.size() <= 128
+        && data.name is string && data.name.size() <= 64
+        && data.price is number && data.price >= 0 && data.price <= 999999999999
+        && data.category in ['Hat', 'Face', 'Gear', 'Bundle', 'Accessory', 'Animation', 'T-Shirt']
+        && data.imageUrl is string && data.imageUrl.size() <= 1024
+        && (!('stock' in data) || data.stock is number)
+        && (!('isOffsale' in data) || data.isOffsale is bool);
+    }
+
+    // CHAT VALIDATION
+    function isValidChat(data) {
+      return data.keys().hasAll(['username', 'message', 'timestamp'])
+        && data.keys().size() == 3
+        && data.username is string && data.username.size() <= 32
+        && data.message is string && data.message.size() <= 280
+        && data.timestamp == request.time;
+    }
+
+    // ----------------------------------------------------
+    // COLLECTIONS
+    // ----------------------------------------------------
+
+    match /items/{itemId} {
+      // Anyone can see items
+      allow get: if isValidId(itemId);
+      allow list: if true;
+
+      // Creation: Only authenticated users
+      allow create: if isSignedIn() 
+        && isValidId(itemId) 
+        && isValidItem(incoming())
+        && incoming().id == itemId;
+
+      // Update: Logic based on owner status or admin
+      // Regular users can only update soldCount or likes, Admins everything
+      allow update: if (
+        isSignedIn() && isValidId(itemId) && (
+          isAdmin() || (
+            // User updating interactions or sales
+            incoming().diff(existing()).affectedKeys().hasOnly(['likes', 'dislikes', 'favorites', 'soldCount', 'price', 'previousPrice'])
+            && isValidItem(incoming())
+          )
+        )
+      );
+    }
+
+    match /chat/{messageId} {
+      allow read: if true;
+      allow create: if isSignedIn() && isValidChat(incoming());
+    }
+
+    // Placeholder for admins collection - managed via Cloud Console
+    match /admins/{userId} {
+      allow read: if isSignedIn() && request.auth.uid == userId;
+    }
+  }
+}

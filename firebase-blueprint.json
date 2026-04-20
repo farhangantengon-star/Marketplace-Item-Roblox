@@ -1,0 +1,50 @@
+{
+  "entities": {
+    "Item": {
+      "title": "Marketplace Item",
+      "description": "Any item available in the marketplace, including system items and UGC.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "creator": { "type": "string" },
+        "type": { "type": "string", "enum": ["Regular", "Limited", "LimitedU"] },
+        "price": { "type": "number" },
+        "initialPrice": { "type": "number" },
+        "stock": { "type": "number" },
+        "initialStock": { "type": "number" },
+        "soldCount": { "type": "number" },
+        "imageUrl": { "type": "string" },
+        "category": { "type": "string", "enum": ["Hat", "Face", "Gear", "Bundle", "Accessory", "Animation", "T-Shirt"] },
+        "likes": { "type": "number" },
+        "dislikes": { "type": "number" },
+        "favorites": { "type": "number" },
+        "isOffsale": { "type": "boolean" },
+        "commissionMode": { "type": "string", "enum": ["full", "trickle"] },
+        "isTshirt": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "name", "price", "imageUrl", "category"]
+    },
+    "Chat": {
+      "title": "Public Chat Message",
+      "description": "Message in the global community chat.",
+      "type": "object",
+      "properties": {
+        "username": { "type": "string" },
+        "message": { "type": "string" },
+        "timestamp": { "type": "string", "format": "date-time" }
+      }
+    }
+  },
+  "firestore": {
+    "/items/{itemId}": {
+      "schema": "Item",
+      "description": "Collection of all marketplace items, including UGC items created by users."
+    },
+    "/chat/{messageId}": {
+      "schema": "Chat",
+      "description": "Global chat logs."
+    }
+  }
+}
