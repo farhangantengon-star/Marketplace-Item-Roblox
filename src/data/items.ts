@@ -756,4 +756,17 @@ export const INITIAL_ITEMS: MarketplaceItem[] = [
     category: 'Hat',
     imageUrl: 'https://i.ibb.co.com/hR0mh8QC/image.png',
   },
+  {
+    id: 'prankster-face',
+    name: 'Prankster',
+    creator: 'Roblox',
+    type: 'LimitedU',
+    price: 751000,
+    initialPrice: 751000,
+    stock: 50,
+    initialStock: 100,
+    soldCount: 50,
+    category: 'Face',
+    imageUrl: 'https://i.ibb.co.com/MkLL2qN8/image.png',
+  },
 ];

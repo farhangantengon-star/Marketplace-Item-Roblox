@@ -44,8 +44,32 @@ import { INITIAL_ITEMS } from './data/items';
 import { ItemIcon } from './components/ItemIcon';
 import { GoogleGenAI, Type, FunctionDeclaration } from "@google/genai";
 
-// Initialize Gemini
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+// Global shim for process.env (Vercel/Production safety)
+if (typeof window !== 'undefined' && !('process' in window)) {
+  (window as any).process = { env: {} };
+}
+
+// Initialize Gemini with safety for production environments (Vercel)
+const getApiKey = () => {
+  try {
+    // Try process.env (AI Studio / Shimmed)
+    if (typeof process !== 'undefined' && process.env?.GEMINI_API_KEY) {
+      return process.env.GEMINI_API_KEY;
+    }
+    // Try Vite env if available
+    const metaEnv = (import.meta as any).env;
+    if (metaEnv?.VITE_GEMINI_API_KEY) {
+      return metaEnv.VITE_GEMINI_API_KEY;
+    }
+  } catch (e) {
+    console.warn("API Key resolution error", e);
+  }
+  return "";
+};
+
+const apiKey = getApiKey();
+// The SDK v1 uses new GoogleGenAI({ apiKey })
+const ai = apiKey ? new GoogleGenAI({ apiKey }) : null;
 
 // Roblox Robux Icon (Using user-provided image)
 const RobuxIcon = ({ className = "w-4 h-4" }) => (
@@ -98,9 +122,7 @@ export default function App() {
   });
   const [user, setUser] = useState<UserState>(() => {
     const saved = localStorage.getItem('roblox_user');
-    if (saved) return JSON.parse(saved);
-
-    return {
+    const defaultUser: UserState = {
       balance: 5000,
       pendingBalance: 0,
       inventory: [],
@@ -108,6 +130,14 @@ export default function App() {
       dislikedItems: [],
       favoriteItems: [],
     };
+
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      // Migration: Ensure all new fields exist
+      return { ...defaultUser, ...parsed };
+    }
+
+    return defaultUser;
   });
   const [listings, setListings] = useState<MarketplaceListing[]>(() => {
     const saved = localStorage.getItem('roblox_listings');
@@ -728,6 +758,13 @@ export default function App() {
     setIsChatLoading(true);
 
     try {
+      if (!ai) {
+        setChatMessages(prev => [...prev, { role: 'bot', text: "Systems offline: Please configure GEMINI_API_KEY to enable the AI Admin features." }]);
+        setIsChatLoading(false);
+        return;
+      }
+
+      // @ts-ignore - Support current SDK call style
       const response = await ai.models.generateContent({
         model: "gemini-3-flash-preview",
         config: {
