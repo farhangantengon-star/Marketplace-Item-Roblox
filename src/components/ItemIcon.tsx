@@ -13,12 +13,14 @@ export const ItemIcon: React.FC<ItemIconProps> = ({ name, category, className = 
   const isDominus = name.toLowerCase().includes('dominus');
   const isFace = category === 'Face';
   const isAnimation = category === 'Animation';
+  const isTshirt = category === 'T-Shirt';
   const isLimitedU = name.toLowerCase().includes('rex') || name.toLowerCase().includes('void') || name.toLowerCase().includes('firebrand');
   
   const getGradient = () => {
     if (isDominus) return 'from-slate-400 via-slate-600 to-slate-800';
     if (isLimitedU) return 'from-red-400 via-red-600 to-red-800';
     if (isAnimation) return 'from-purple-400 via-purple-600 to-purple-800';
+    if (isTshirt) return 'from-blue-200 via-blue-400 to-blue-600';
     if (name.toLowerCase().includes('golden')) return 'from-yellow-200 via-yellow-400 to-yellow-600';
     if (name.toLowerCase().includes('red')) return 'from-red-300 via-red-500 to-red-700';
     return 'from-brand-neon/20 to-brand-neon/40';
@@ -57,6 +59,11 @@ export const ItemIcon: React.FC<ItemIconProps> = ({ name, category, className = 
              <path d="M50 20 L30 50 L50 80 L70 50 Z" fill="none" stroke="currentColor" strokeWidth="2" />
              <circle cx="50" cy="50" r="10" fill="currentColor" className="animate-ping opacity-20" />
              <path d="M20 50 L10 50 M90 50 L80 50 M50 10 L50 5 M50 90 L50 95" stroke="currentColor" strokeWidth="2" />
+          </svg>
+        ) : isTshirt ? (
+          <svg viewBox="0 0 100 100" className="w-full h-full text-blue-500">
+            <path d="M25 20 L40 20 L50 30 L60 20 L75 20 L85 40 L70 45 L70 85 L30 85 L30 45 L15 40 Z" fill="currentColor" opacity="0.8" />
+            <path d="M25 20 L40 20 L50 30 L60 20 L75 20 L85 40 L70 45 L70 85 L30 85 L30 45 L15 40 Z" fill="none" stroke="currentColor" strokeWidth="2" />
           </svg>
         ) : (
           <svg viewBox="0 0 100 100" className="w-full h-full text-gray-300">

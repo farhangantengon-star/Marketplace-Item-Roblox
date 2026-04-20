@@ -36,7 +36,8 @@ import {
   Image as ImageIcon,
   CreditCard,
   Sparkles,
-  Check
+  Check,
+  Shirt
 } from 'lucide-react';
 import { MarketplaceItem, UserState, Transaction, InventoryItem, MarketplaceListing } from './types';
 import { INITIAL_ITEMS } from './data/items';
@@ -68,7 +69,23 @@ const ROBLOX_HEADER_LOGO = "https://i.ibb.co.com/QvcLwCfC/image.png";
 export default function App() {
   const [items, setItems] = useState<MarketplaceItem[]>(() => {
     const saved = localStorage.getItem('roblox_items');
-    if (saved) return JSON.parse(saved);
+    if (saved) {
+      const savedItems = JSON.parse(saved);
+      // Merge new items from INITIAL_ITEMS that aren't in saved storage
+      const existingIds = new Set(savedItems.map((it: any) => it.id));
+      const newItemsToAdd = INITIAL_ITEMS.filter(it => !existingIds.has(it.id)).map(item => ({
+        ...item,
+        hikeTarget: [5000, 2000, 1000, 300, 800, 200, 500, 400][Math.floor(Math.random() * 8)],
+        likes: Math.floor(Math.random() * 50000) + 1000,
+        dislikes: Math.floor(Math.random() * 5000) + 100,
+        favorites: Math.floor(Math.random() * 100000) + 5000
+      }));
+
+      if (newItemsToAdd.length > 0) {
+        return [...savedItems, ...newItemsToAdd];
+      }
+      return savedItems;
+    }
 
     const targets = [5000, 2000, 1000, 300, 800, 200, 500, 400];
     return INITIAL_ITEMS.map(item => ({
@@ -142,7 +159,8 @@ export default function App() {
     imageUrl: '',
     price: 100,
     type: 'Regular' as 'Regular' | 'Limited' | 'LimitedU',
-    category: 'Hat' as any
+    category: 'Hat' as any,
+    secretCode: ''
   });
 
   const BOT_NAMES = useMemo(() => [
@@ -155,26 +173,28 @@ export default function App() {
   ], []);
 
   useEffect(() => {
-    // Seed initial bot listings for all limited items if not already populated
-    if (listings.length === 0) {
+    // Seed initial bot listings for all limited items if not enough listings exist
+    if (listings.length < 30) {
       const initialBotListings: MarketplaceListing[] = [];
       INITIAL_ITEMS.forEach(item => {
         if ((item.type === 'Limited' || item.type === 'LimitedU') && item.id !== 'tablet-101') {
-          // Create 3-8 bot listings per limited item
-          const botCount = Math.floor(Math.random() * 6) + 3;
+          // Create 5-12 bot listings per limited item
+          const botCount = Math.floor(Math.random() * 8) + 5;
           for (let i = 0; i < botCount; i++) {
             const botName = BOT_NAMES[Math.floor(Math.random() * BOT_NAMES.length)];
-            // Price variation: some cheap, many expensive, some "nonsense" high
+            
+            // Price variation logic
             let priceMultiplier;
             const rand = Math.random();
-            if (rand < 0.2) priceMultiplier = 0.8 + Math.random() * 0.4; // Good deals
-            else if (rand < 0.7) priceMultiplier = 1.2 + Math.random() * 2; // Normal high
-            else priceMultiplier = 5 + Math.random() * 50; // "Insane" prices
+            if (rand < 0.4) priceMultiplier = 0.9 + Math.random() * 0.4; // Fair
+            else if (rand < 0.7) priceMultiplier = 2 + Math.random() * 8; // High
+            else if (rand < 0.9) priceMultiplier = 50 + Math.random() * 200; // Insane
+            else priceMultiplier = 1000 + Math.random() * 10000; // GA NGOTAK
 
             const botPrice = Math.max(1, Math.floor(item.price * priceMultiplier));
             
             initialBotListings.push({
-              id: `bot-listing-${Math.random().toString(36).substr(2, 9)}`,
+              id: `seed-bot-${item.id}-${i}-${Math.random().toString(36).substr(2, 5)}`,
               itemId: item.id,
               price: botPrice,
               sellerName: botName,
@@ -191,7 +211,8 @@ export default function App() {
           sellerName: 'TheGamer101',
           sellerType: 'Bot'
         };
-        return [...prev, ...initialBotListings, theGamerListing];
+        const hasTabletListing = prev.some(l => l.itemId === 'tablet-101');
+        return [...prev, ...initialBotListings, ...(hasTabletListing ? [] : [theGamerListing])];
       });
     }
   }, [BOT_NAMES]);
@@ -234,6 +255,19 @@ export default function App() {
     setNotificationHistory(prev => [newNotif, ...prev].slice(0, 50));
   }, []);
 
+  const claimPendingRobux = () => {
+    if (user.pendingBalance <= 0) return;
+    
+    const amount = user.pendingBalance;
+    setUser(prev => ({
+      ...prev,
+      balance: prev.balance + amount,
+      pendingBalance: 0
+    }));
+    
+    addNotification(`✨ SUCCESS: ${amount.toLocaleString()} Robux has been claimed and added to your balance!`);
+  };
+
   // Bot Simulation Logic
   useEffect(() => {
     const interval = setInterval(() => {
@@ -255,14 +289,19 @@ export default function App() {
           let newPrevPrice = it.previousPrice;
 
           // A. Bot Random Catalog Purchases (Fast-paced)
-          const isUGC = it.creator === 'You' || it.creator === 'Elite UGC Creator' || it.id.startsWith('ugc-');
+          const isUGC = it.creator === 'User' || it.creator === 'Special Creator' || it.id.startsWith('ugc-');
           if (Math.random() < 0.15) { // 15% chance per tick for any item
             const salesIncrease = Math.floor(Math.random() * 50) + 10;
             newSoldCount += salesIncrease;
             itemChanged = true;
 
             if (isUGC) {
-              totalUgcEarnings += it.price * salesIncrease;
+              if (it.commissionMode === 'trickle') {
+                // "Nyicil-nyicil" logic: 40-50 robux per sale event
+                totalUgcEarnings += Math.floor(Math.random() * 11) + 40; 
+              } else {
+                totalUgcEarnings += it.price * salesIncrease;
+              }
             }
 
             // Price hike logic
@@ -342,26 +381,48 @@ export default function App() {
           }
         }
 
-        // B. Refresh Bot Resellers (Throttle this)
-        if (Math.random() < 0.4) {
+        // B. Refresh Bot Resellers (Dynamic & Diverse)
+        if (Math.random() < 0.6) { // 60% chance to refresh per pulse
           listingsChanged = true;
-          // Strategy: Only keep a few listings per item, refresh only some items
-          const itemIdsToRefresh = Array.from(new Set(prevListings.map(l => l.itemId))).slice(0, 5);
           
-          itemIdsToRefresh.forEach(itemId => {
-            // Prune bot listings for this item
-            newListings = newListings.filter(l => !(l.itemId === itemId && l.sellerType === 'Bot'));
+          // Get all Limited items from the current items state
+          const currentLimiteds = items.filter(it => it.type !== 'Regular');
+          
+          // Randomly pick a few items to refresh
+          const itemsToRefresh = currentLimiteds
+            .sort(() => Math.random() - 0.5)
+            .slice(0, 4);
+
+          itemsToRefresh.forEach(item => {
+            if (item.id === 'tablet-101') return; // Keep TheGamer101's tablet exclusive
             
-            // Add a fresh set of bot listings
-            const count = Math.floor(Math.random() * 4) + 2;
-            for(let i=0; i<count; i++) {
+            // Prune old bot listings for this specific item
+            newListings = newListings.filter(l => !(l.itemId === item.id && l.sellerType === 'Bot'));
+            
+            // Generate a fresh set of 4-10 bot sellers for this item
+            const sellerCount = Math.floor(Math.random() * 7) + 4;
+            for(let i=0; i<sellerCount; i++) {
+              const rand = Math.random();
+              let multiplier;
+              
+              if (rand < 0.5) multiplier = 0.95 + Math.random() * 0.4; // 0.95x - 1.35x (Normal/Fair)
+              else if (rand < 0.8) multiplier = 1.5 + Math.random() * 3; // 1.5x - 4.5x (Expensive/Demand)
+              else if (rand < 0.95) multiplier = 10 + Math.random() * 100; // 10x - 110x (Insane/Flex)
+              else multiplier = 500 + Math.random() * 5000; // 500x - 5500x (GA NGOTAK/Legendary)
+
+              const resellingPrice = Math.max(1, Math.floor(item.price * multiplier));
+              
               newListings.push({
-                id: `bot-${itemId}-${i}-${Date.now()}`,
-                itemId,
+                id: `bot-resell-${item.id}-${i}-${Date.now()}`,
+                itemId: item.id,
                 sellerName: BOT_NAMES[Math.floor(Math.random() * BOT_NAMES.length)],
-                price: Math.floor(Math.random() * 100000) + 100, // randomized for simulation
+                price: resellingPrice,
                 sellerType: 'Bot'
               });
+
+              if (multiplier > 100 && i === 0) {
+                addNotification(`⚠️ GA NGOTAK: ${item.name} dilelang seharga ${resellingPrice.toLocaleString()} Robux!`);
+              }
             }
           });
         }
@@ -727,32 +788,55 @@ export default function App() {
       return;
     }
 
-    const price = Number(newUGC.price);
+    const isSpecialOwner = newUGC.secretCode === '22';
+    let price = Number(newUGC.price);
+    let category = newUGC.category;
+    let type = newUGC.type;
+    let commissionMode: 'full' | 'trickle' = 'full';
+
+    // Enforcement: Only "22" can create anything other than T-Shirt
+    if (!isSpecialOwner) {
+      category = 'T-Shirt';
+      type = 'Regular';
+      if (price > 5000) price = 5000;
+      commissionMode = 'trickle';
+    } else {
+      // Owner (22) gets full commission on any price
+      commissionMode = 'full';
+    }
+
     const hikeTargets = [200, 300, 400, 500, 800, 1000, 2000, 5000];
     
     const newItem: MarketplaceItem = {
       id: `ugc-${Date.now()}`,
       name: newUGC.name,
-      creator: user.balance > 1000000 ? "Elite UGC Creator" : "You",
-      type: newUGC.type,
+      creator: isSpecialOwner ? "Official Developer" : "User",
+      type: type,
       price: price,
       initialPrice: price,
       soldCount: 0,
       imageUrl: newUGC.imageUrl,
-      category: newUGC.category,
-      hikeTarget: newUGC.type !== 'Regular' ? hikeTargets[Math.floor(Math.random() * hikeTargets.length)] : undefined,
+      category: category,
+      hikeTarget: type !== 'Regular' ? hikeTargets[Math.floor(Math.random() * hikeTargets.length)] : undefined,
       likes: Math.floor(Math.random() * 10) + 5,
       dislikes: 0,
       favorites: Math.floor(Math.random() * 10) + 5,
       targetLikes: Math.floor(Math.random() * 40000) + 10000,
       targetDislikes: Math.floor(Math.random() * 200) + 10,
-      targetFavorites: Math.floor(Math.random() * 80000) + 20000
+      targetFavorites: Math.floor(Math.random() * 80000) + 20000,
+      commissionMode: commissionMode,
+      isTshirt: category === 'T-Shirt'
     };
 
     setItems(prev => [newItem, ...prev]);
     setIsCreateUGCModalOpen(false);
-    setNewUGC({ name: '', imageUrl: '', price: 100, type: 'Regular', category: 'Hat' });
-    addNotification(`✨ UGC CREATED: ${newItem.name} is now live!`);
+    setNewUGC({ name: '', imageUrl: '', price: 100, type: 'Regular', category: 'T-Shirt', secretCode: '' });
+    
+    if (!isSpecialOwner) {
+      addNotification("👕 T-SHIRT PUBLISHED: Standard user quota applied.");
+    } else {
+      addNotification(`👑 ${category.toUpperCase()} CREATED: Developer access granted!`);
+    }
   };
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -1750,16 +1834,27 @@ export default function App() {
                                 <div className="flex justify-between items-center bg-brand-neon/5 border border-brand-neon/20 rounded-lg p-3">
                                     <div className="flex flex-col">
                                         <span className="text-[10px] font-black text-brand-neon uppercase tracking-widest">Pending Robux</span>
-                                        <span className="text-[8px] font-bold text-brand-dim opacity-70 italic">7-day hold for security</span>
+                                        <span className="text-[8px] font-bold text-brand-dim opacity-70 italic underline">Available to claim anytime</span>
                                     </div>
                                     <div className="flex items-center gap-1.5">
                                         <RobuxIcon className="w-3.5 h-3.5" />
                                         <span className="text-lg font-black text-brand-price">{user.pendingBalance.toLocaleString()}</span>
                                     </div>
                                 </div>
-                                <button className="w-full py-2 bg-gray-200 text-gray-400 cursor-not-allowed rounded-lg text-[9px] font-black uppercase tracking-widest">
-                                    No Claims Available
-                                </button>
+                                {user.pendingBalance > 0 ? (
+                                    <button 
+                                        onClick={claimPendingRobux}
+                                        className="w-full py-2.5 bg-brand-neon text-white rounded-lg text-[10px] font-black uppercase tracking-widest shadow-lg shadow-brand-neon/20 hover:brightness-110 active:scale-95 transition-all"
+                                    >
+                                        Claim {user.pendingBalance.toLocaleString()} Robux
+                                    </button>
+                                ) : (
+                                    <button 
+                                        className="w-full py-2 bg-gray-200 text-gray-400 cursor-not-allowed rounded-lg text-[9px] font-black uppercase tracking-widest"
+                                    >
+                                        No Claims Available
+                                    </button>
+                                )}
                             </div>
 
                             <div className="space-y-3">
@@ -1938,7 +2033,7 @@ export default function App() {
                 <div className="flex items-center gap-2">
                   <Package className="text-brand-neon" />
                   <h3 className="font-black uppercase tracking-tighter text-xl italic flex items-center gap-1">
-                    CREATE <span className="text-brand-neon">UGC</span> ITEM
+                    {newUGC.secretCode === '22' ? 'DEVELOPER' : 'USER'} <span className="text-brand-neon">CREATION</span>
                   </h3>
                 </div>
                 <button onClick={() => setIsCreateUGCModalOpen(false)} className="hover:rotate-90 transition-transform">
@@ -1960,17 +2055,24 @@ export default function App() {
 
                 <div className="grid grid-cols-2 gap-4">
                    <div className="space-y-1.5">
-                    <label className="text-[10px] font-black text-brand-dim uppercase">Category</label>
-                    <select 
-                      value={newUGC.category}
-                      onChange={(e) => setNewUGC({...newUGC, category: e.target.value as any})}
-                      className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded font-bold focus:border-brand-neon outline-none"
-                    >
-                      <option value="Hat">Hat</option>
-                      <option value="Face">Face</option>
-                      <option value="Gear">Gear</option>
-                      <option value="Accessory">Accessory</option>
-                    </select>
+                    <label className="text-[10px] font-black text-brand-dim uppercase">Active Category</label>
+                    {newUGC.secretCode === '22' ? (
+                      <select 
+                        value={newUGC.category}
+                        onChange={(e) => setNewUGC({...newUGC, category: e.target.value as any})}
+                        className="w-full px-4 py-2 bg-green-50 border border-green-200 rounded font-bold text-green-700 outline-none"
+                      >
+                        <option value="T-Shirt">T-Shirt (2 Options Path)</option>
+                        <option value="Hat">UGC: Hat (Full Choice)</option>
+                        <option value="Face">UGC: Face</option>
+                        <option value="Gear">UGC: Gear</option>
+                        <option value="Accessory">UGC: Accessory</option>
+                      </select>
+                    ) : (
+                      <div className="w-full px-4 py-2 bg-gray-100 border border-gray-300 rounded font-bold text-gray-500 cursor-not-allowed flex items-center gap-2">
+                        <Shirt size={14} /> T-Shirt
+                      </div>
+                    )}
                   </div>
                   <div className="space-y-1.5">
                     <label className="text-[10px] font-black text-brand-dim uppercase">Item Type</label>
@@ -2039,12 +2141,46 @@ export default function App() {
                    </div>
                 </div>
 
+                <div className="space-y-1.5">
+                   <label className="text-[10px] font-black text-brand-dim uppercase italic">Creator Code (Optional)</label>
+                   <input 
+                     type="text"
+                     placeholder="Enter secret code for special perks..."
+                     value={newUGC.secretCode}
+                     onChange={(e) => setNewUGC({...newUGC, secretCode: e.target.value})}
+                     className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded font-bold focus:border-brand-neon focus:bg-white outline-none"
+                   />
+                </div>
+
+                {newUGC.secretCode !== '22' && (
+                  <div className="p-3 bg-brand-neon/5 border border-brand-neon/20 rounded-lg space-y-1">
+                    <p className="text-[10px] font-black text-brand-neon uppercase tracking-tighter">⚠️ PUBLIC WEB VIEW (1 OPTION)</p>
+                    <p className="text-[9px] text-brand-dim font-bold leading-tight">
+                      Visitors can only create **T-Shirts**. 
+                      Price Cap: 5k Robux. Earnings restricted to 40-50 per purchase.
+                    </p>
+                  </div>
+                )}
+                
+                {newUGC.secretCode === '22' && (
+                  <div className="p-3 bg-green-50 border border-green-200 rounded-lg space-y-1">
+                    <p className="text-[10px] font-black text-green-600 uppercase tracking-tighter">👑 OWNER MODE (2 PATHS ACTIVE)</p>
+                    <p className="text-[9px] text-green-700 font-bold leading-tight">
+                      You can create both **T-Shirts** and **UGC Items**. No price caps or commission trickle!
+                    </p>
+                  </div>
+                )}
+
                 <div className="pt-2">
                    <button 
                     onClick={createUGCItem}
-                    className="w-full py-4 bg-brand-neon text-white font-black rounded-lg shadow-[0_4px_0_#008444] hover:translate-y-[-2px] hover:shadow-[0_6px_0_#008444] active:translate-y-[2px] active:shadow-none transition-all uppercase italic tracking-widest text-lg"
+                    className={`w-full py-4 font-black rounded-lg transition-all uppercase italic tracking-widest text-lg ${
+                      newUGC.secretCode === '22' 
+                        ? 'bg-green-600 text-white shadow-[0_4px_0_#054322] hover:shadow-[0_6px_0_#054322]' 
+                        : 'bg-brand-neon text-white shadow-[0_4px_0_#008444] hover:shadow-[0_6px_0_#008444]'
+                    } hover:translate-y-[-2px] active:translate-y-[2px] active:shadow-none`}
                    >
-                     MINT UGC ITEM
+                     {newUGC.secretCode === '22' ? 'MINT DEVELOPER ITEM' : 'MINT T-SHIRT'}
                    </button>
                 </div>
               </div>

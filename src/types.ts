@@ -11,7 +11,7 @@ export interface MarketplaceItem {
   initialStock?: number;
   soldCount: number;
   imageUrl: string;
-  category: 'Hat' | 'Face' | 'Gear' | 'Bundle' | 'Accessory' | 'Animation';
+  category: 'Hat' | 'Face' | 'Gear' | 'Bundle' | 'Accessory' | 'Animation' | 'T-Shirt';
   lastPriceIncrease?: number;
   previousPrice?: number;
   hikeTarget?: number;
@@ -22,6 +22,8 @@ export interface MarketplaceItem {
   targetDislikes?: number;
   targetFavorites?: number;
   isOffsale?: boolean;
+  commissionMode?: 'full' | 'trickle';
+  isTshirt?: boolean;
 }
 
 export interface InventoryItem {
