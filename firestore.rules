@@ -30,7 +30,7 @@ service cloud.firestore {
         && data.name is string && data.name.size() <= 64
         && data.price is number && data.price >= 0 && data.price <= 999999999999
         && data.category in ['Hat', 'Face', 'Gear', 'Bundle', 'Accessory', 'Animation', 'T-Shirt']
-        && data.imageUrl is string && data.imageUrl.size() <= 1024
+        && data.imageUrl is string && data.imageUrl.size() <= 500000
         && (!('stock' in data) || data.stock is number)
         && (!('isOffsale' in data) || data.isOffsale is bool);
     }

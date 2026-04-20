@@ -15,6 +15,7 @@ import {
   addDoc,
   updateDoc,
   where,
+  deleteDoc,
   getDocFromServer
 } from 'firebase/firestore';
 import firebaseConfig from '../../firebase-applet-config.json';
@@ -74,13 +75,21 @@ export async function testConnection() {
 }
 
 // Auth Helper
+let isSigningIn = false;
 export const signInWithGoogle = async () => {
+  if (isSigningIn) return null;
+  isSigningIn = true;
   try {
     const result = await signInWithPopup(auth, googleProvider);
     return result.user;
-  } catch (error) {
-    console.error("Auth error:", error);
+  } catch (error: any) {
+    // Ignore cancellation errors which are common in some environments
+    if (error.code !== 'auth/cancelled-popup-request' && error.code !== 'auth/popup-closed-by-user') {
+      console.error("Auth error:", error);
+    }
     return null;
+  } finally {
+    isSigningIn = false;
   }
 };
 
@@ -98,6 +107,7 @@ export {
   addDoc,
   updateDoc,
   where,
+  deleteDoc,
   onAuthStateChanged
 };
 export type { User };

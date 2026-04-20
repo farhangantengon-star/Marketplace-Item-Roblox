@@ -37,7 +37,8 @@ import {
   CreditCard,
   Sparkles,
   Check,
-  Shirt
+  Shirt,
+  Trash2
 } from 'lucide-react';
 import { MarketplaceItem, UserState, Transaction, InventoryItem, MarketplaceListing } from './types';
 import { INITIAL_ITEMS } from './data/items';
@@ -51,6 +52,7 @@ import {
   setDoc, 
   getDoc,
   updateDoc,
+  deleteDoc,
   onSnapshot, 
   query, 
   orderBy, 
@@ -112,6 +114,7 @@ export default function App() {
   const [currentUser, setCurrentUser] = useState<FirebaseUser | null>(null);
   const [items, setItems] = useState<MarketplaceItem[]>([]);
   const [isFirebaseSynced, setIsFirebaseSynced] = useState(false);
+  const [isAuthLoading, setIsAuthLoading] = useState(false);
 
   // Connection Test
   useEffect(() => {
@@ -122,8 +125,20 @@ export default function App() {
   useEffect(() => {
     return onAuthStateChanged(auth, (user) => {
       setCurrentUser(user);
+      setIsAuthLoading(false);
     });
   }, []);
+
+  const handleSignIn = async () => {
+    if (isAuthLoading) return;
+    setIsAuthLoading(true);
+    try {
+      await signInWithGoogle();
+    } catch (e) {
+      console.error(e);
+      setIsAuthLoading(false);
+    }
+  };
 
   // Real-time Firestore Sync
   useEffect(() => {
@@ -923,8 +938,14 @@ export default function App() {
   };
 
   const createUGCItem = async () => {
+    if (!currentUser) {
+      addNotification("❌ Please Login to create UGC!");
+      handleSignIn();
+      return;
+    }
+
     if (!newUGC.name || !newUGC.imageUrl) {
-      addNotification("❌ Please fill all fields!");
+      addNotification("❌ Please enter Name and Image!");
       return;
     }
 
@@ -948,7 +969,8 @@ export default function App() {
     const hikeTargets = [200, 300, 400, 500, 800, 1000, 2000, 5000];
     const itemId = `ugc-${Date.now()}`;
     
-    const newItem: MarketplaceItem = {
+    // Create payload and remove undefined properties (Firestore requirement)
+    const itemData: any = {
       id: itemId,
       name: newUGC.name,
       creator: isSpecialOwner ? "Official Developer" : (currentUser?.displayName || "Anonymous User"),
@@ -958,31 +980,56 @@ export default function App() {
       soldCount: 0,
       imageUrl: newUGC.imageUrl,
       category: category,
-      hikeTarget: type !== 'Regular' ? hikeTargets[Math.floor(Math.random() * hikeTargets.length)] : undefined,
-      likes: Math.floor(Math.random() * 10) + 5,
+      likes: Math.floor(Math.random() * 50) + 20,
       dislikes: 0,
-      favorites: Math.floor(Math.random() * 10) + 5,
+      favorites: Math.floor(Math.random() * 100) + 50,
       targetLikes: Math.floor(Math.random() * 40000) + 10000,
       targetDislikes: Math.floor(Math.random() * 200) + 10,
       targetFavorites: Math.floor(Math.random() * 80000) + 20000,
       commissionMode: commissionMode,
-      isTshirt: category === 'T-Shirt'
+      isTshirt: category === 'T-Shirt',
+      createdAt: serverTimestamp()
     };
+
+    if (type !== 'Regular') {
+      itemData.hikeTarget = hikeTargets[Math.floor(Math.random() * hikeTargets.length)];
+    }
 
     // Save to Firestore for multi-user visibility
     try {
-      await setDoc(doc(db, 'items', itemId), newItem);
+      await setDoc(doc(db, 'items', itemId), itemData);
       setIsCreateUGCModalOpen(false);
-      setNewUGC({ name: '', imageUrl: '', price: 100, type: 'Regular', category: 'T-Shirt', secretCode: '' });
+      
+      // Reset form but KEEP the secretCode so the user doesn't have to re-type it
+      setNewUGC(prev => ({ 
+        ...prev, 
+        name: '', 
+        imageUrl: '', 
+        price: 100 
+      }));
       
       if (!isSpecialOwner) {
-        addNotification("👕 T-SHIRT PUBLISHED: Standard user quota applied.");
+        addNotification("👕 T-SHIRT PUBLISHED: Market synced.");
       } else {
-        addNotification(`👑 ${category.toUpperCase()} CREATED: Developer access granted!`);
+        addNotification(`👑 ${category.toUpperCase()} CREATED: Synced to all users!`);
       }
     } catch (e) {
       console.error("Firestore create error:", e);
-      addNotification("❌ Error publishing to marketplace.");
+      addNotification("❌ Database Error: Please check your connection.");
+    }
+  };
+
+  const handleDeleteItem = async (itemId: string) => {
+    if (!window.confirm("Are you sure you want to delete this item? This action cannot be undone.")) return;
+
+    try {
+      await deleteDoc(doc(db, 'items', itemId));
+      addNotification("🗑️ Item deleted successfully!");
+      setSelectedItem(null);
+      setIsMenuOpen(false);
+    } catch (e) {
+      console.error("Delete error:", e);
+      addNotification("❌ Error: Could not delete item.");
     }
   };
 
@@ -1256,10 +1303,18 @@ export default function App() {
           <Settings className="w-5 h-5 cursor-pointer hover:opacity-80" />
           {!currentUser ? (
             <button 
-              onClick={signInWithGoogle}
-              className="bg-white/10 hover:bg-white/20 text-white px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest transition-all border border-white/20"
+              onClick={handleSignIn}
+              disabled={isAuthLoading}
+              className={`text-white px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest transition-all border border-white/20 flex items-center gap-2 ${isAuthLoading ? 'bg-white/5 opacity-50 cursor-wait' : 'bg-white/10 hover:bg-white/20'}`}
             >
-              Login
+              {isAuthLoading ? (
+                <>
+                  <div className="w-3 h-3 border-2 border-white/20 border-t-white rounded-full animate-spin" />
+                  <span>Wait...</span>
+                </>
+              ) : (
+                'Login'
+              )}
             </button>
           ) : (
             <div 
@@ -1613,6 +1668,15 @@ export default function App() {
                               <button className="w-full text-left px-4 py-2.5 text-xs font-bold hover:bg-gray-100 flex items-center gap-2 text-red-600">
                                 <Bell size={14} /> REPORT ITEM
                               </button>
+
+                              {(selectedItem.creator === (currentUser?.displayName || "Official Developer") || newUGC.secretCode === '2006') && (
+                                <button 
+                                  onClick={() => handleDeleteItem(selectedItem.id)}
+                                  className="w-full text-left px-4 py-3 text-sm font-bold hover:bg-red-50 flex items-center gap-2 text-red-600 transition-colors border-t"
+                                >
+                                  <Trash2 size={14} /> DELETE ITEM
+                                </button>
+                              )}
                             </motion.div>
                           )}
                         </AnimatePresence>
@@ -2258,8 +2322,25 @@ export default function App() {
                   </div>
                 </div>
 
-                <div className="space-y-1.5">
-                  <label className="text-[10px] font-black text-brand-dim uppercase italic">Item Visualization</label>
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <label className="text-[10px] font-black text-brand-dim uppercase italic">Item Visualization</label>
+                    <span className="text-[9px] font-bold text-gray-400">Upload or paste URL</span>
+                  </div>
+                  
+                  {!newUGC.imageUrl && (
+                    <input 
+                      type="text"
+                      placeholder="Paste Image URL here..."
+                      className="w-full px-3 py-1.5 bg-gray-50 border border-gray-200 rounded text-[10px] font-bold outline-none focus:border-brand-neon focus:bg-white"
+                      onBlur={(e) => {
+                        if (e.target.value.startsWith('http')) {
+                          setNewUGC(prev => ({ ...prev, imageUrl: e.target.value }));
+                        }
+                      }}
+                    />
+                  )}
+
                   <div className="relative group overflow-hidden bg-gray-50 border-2 border-dashed border-gray-200 rounded-xl p-4 flex flex-col items-center justify-center transition-all hover:border-brand-neon hover:bg-brand-neon/5 cursor-pointer">
                     {newUGC.imageUrl ? (
                       <div className="relative w-full aspect-square max-h-[120px]">
