@@ -769,4 +769,17 @@ export const INITIAL_ITEMS: MarketplaceItem[] = [
     category: 'Face',
     imageUrl: 'https://i.ibb.co.com/MkLL2qN8/image.png',
   },
+  {
+    id: 'bandage-face',
+    name: 'Bandage',
+    creator: 'Roblox',
+    type: 'LimitedU',
+    price: 118000,
+    initialPrice: 118000,
+    stock: 25,
+    initialStock: 50,
+    soldCount: 25,
+    category: 'Face',
+    imageUrl: 'https://i.ibb.co.com/jPxTDRsY/image.png',
+  },
 ];
