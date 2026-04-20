@@ -95,8 +95,18 @@ export default function App() {
     const saved = localStorage.getItem('roblox_items');
     if (saved) {
       const savedItems = JSON.parse(saved);
+      
+      // Update categories for existing items based on INITIAL_ITEMS
+      const updatedSavedItems = savedItems.map((item: MarketplaceItem) => {
+        const originalItem = INITIAL_ITEMS.find(it => it.id === item.id);
+        if (originalItem && originalItem.category !== item.category) {
+          return { ...item, category: originalItem.category };
+        }
+        return item;
+      });
+
       // Merge new items from INITIAL_ITEMS that aren't in saved storage
-      const existingIds = new Set(savedItems.map((it: any) => it.id));
+      const existingIds = new Set(updatedSavedItems.map((it: any) => it.id));
       const newItemsToAdd = INITIAL_ITEMS.filter(it => !existingIds.has(it.id)).map(item => ({
         ...item,
         hikeTarget: [5000, 2000, 1000, 300, 800, 200, 500, 400][Math.floor(Math.random() * 8)],
@@ -105,10 +115,7 @@ export default function App() {
         favorites: Math.floor(Math.random() * 100000) + 5000
       }));
 
-      if (newItemsToAdd.length > 0) {
-        return [...savedItems, ...newItemsToAdd];
-      }
-      return savedItems;
+      return [...updatedSavedItems, ...newItemsToAdd];
     }
 
     const targets = [5000, 2000, 1000, 300, 800, 200, 500, 400];
