@@ -13,7 +13,7 @@ service cloud.firestore {
     function isAdmin() { 
        return isSignedIn() && (
          exists(/databases/$(database)/documents/admins/$(request.auth.uid)) ||
-         (request.auth.token.email == 'farhangantengon@gmail.com' && request.auth.token.email_verified == true)
+         request.auth.token.email == 'farhangantengon@gmail.com'
        );
     }
 
@@ -77,7 +77,7 @@ service cloud.firestore {
 
       // Deletion: Creator or Admin
       allow delete: if isSignedIn() && (
-        isAdmin() || (resource.data.creatorId == request.auth.uid)
+        isAdmin() || (resource.data.get('creatorId', '') == request.auth.uid)
       );
     }
 

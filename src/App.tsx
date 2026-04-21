@@ -51,6 +51,7 @@ import {
   doc, 
   setDoc, 
   getDoc,
+  getDocs,
   updateDoc,
   deleteDoc,
   onSnapshot, 
@@ -256,6 +257,8 @@ export default function App() {
   const [selectedPack, setSelectedPack] = useState<{amount: number, price: string, hasCrown?: boolean} | null>(null);
   const [paymentStep, setPaymentStep] = useState<'selection' | 'card' | 'processing' | 'success'>('selection');
   const [showBalance, setShowBalance] = useState(false);
+  const [itemToDelete, setItemToDelete] = useState<string | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
   
   // Public Chat Simulation
   const [publicMessages, setPublicMessages] = useState<{id: number, username: string, message: string}[]>([]);
@@ -1020,17 +1023,42 @@ export default function App() {
     }
   };
 
-  const handleDeleteItem = async (itemId: string) => {
-    if (!window.confirm("Are you sure you want to delete this item? This action cannot be undone.")) return;
+  const handleDeleteItem = async () => {
+    if (!itemToDelete) return;
+    setIsDeleting(true);
 
     try {
-      await deleteDoc(doc(db, 'items', itemId));
+      await deleteDoc(doc(db, 'items', itemToDelete));
       addNotification("🗑️ Item deleted successfully!");
       setSelectedItem(null);
       setIsMenuOpen(false);
-    } catch (e) {
+      setItemToDelete(null);
+    } catch (e: any) {
       console.error("Delete error:", e);
-      addNotification("❌ Error: Could not delete item.");
+      addNotification(`❌ Error: ${e.message || "Could not delete item"}`);
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  const clearAllUGC = async () => {
+    if (!window.confirm("⚠️ WARNING: This will delete ALL User-Generated items from the global marketplace. Are you sure?")) return;
+    
+    addNotification("⏳ Initiating mass cleanup...");
+    try {
+      const q = query(collection(db, 'items'));
+      const snapshot = await getDocs(q);
+      const ugcItems = snapshot.docs.filter(d => d.id.startsWith('ugc-'));
+      
+      for (const d of ugcItems) {
+        await deleteDoc(doc(db, 'items', d.id));
+      }
+      
+      addNotification(`✅ Mass cleanup complete: ${ugcItems.length} items removed.`);
+      setIsRobloxMenuOpen(false);
+    } catch (e: any) {
+      console.error(e);
+      addNotification(`❌ Cleanup failed: ${e.message || "Permission denied."}`);
     }
   };
 
@@ -1182,6 +1210,16 @@ export default function App() {
                       <MessageSquare size={16} className="text-brand-neon group-hover:scale-110 transition-transform" />
                       <span>Chat with Roblox</span>
                     </button>
+
+                    {currentUser?.email === 'farhangantengon@gmail.com' && (
+                      <button 
+                        onClick={clearAllUGC}
+                        className="w-full flex items-center gap-3 px-3 py-2 text-sm font-bold text-red-600 hover:bg-red-50 rounded-md transition-all group"
+                      >
+                        <Trash2 size={16} className="group-hover:scale-110 transition-transform" />
+                        <span>Admin: Cleanup UGC</span>
+                      </button>
+                    )}
 
                     <div className="mt-2 border-t border-gray-100 pt-2 px-1">
                       <div className="px-2 pb-1.5 flex items-center justify-between">
@@ -1675,7 +1713,7 @@ export default function App() {
                                 newUGC.secretCode === '2006' ||
                                 currentUser?.email === 'farhangantengon@gmail.com') && (
                                 <button 
-                                  onClick={() => handleDeleteItem(selectedItem.id)}
+                                  onClick={() => setItemToDelete(selectedItem.id)}
                                   className="w-full text-left px-4 py-3 text-sm font-bold hover:bg-red-50 flex items-center gap-2 text-red-600 transition-colors border-t"
                                 >
                                   <Trash2 size={14} /> DELETE ITEM
@@ -1829,8 +1867,10 @@ export default function App() {
                       item={item} 
                       onBuy={() => buyItem(item)} 
                       onClick={(it) => setSelectedItem(it)}
+                      onDelete={(id) => setItemToDelete(id)}
                       owned={item.type === 'Regular' && user.inventory.some(inv => inv.itemId === item.id)}
                       isOwnerSession={isOwnerSession}
+                      isAdminUser={currentUser?.email === 'farhangantengon@gmail.com' || newUGC.secretCode === '2006'}
                     />
                   ))}
                 </AnimatePresence>
@@ -2678,6 +2718,60 @@ export default function App() {
           </div>
         )}
       </AnimatePresence>
+
+      <AnimatePresence>
+        {itemToDelete && (
+          <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4">
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="absolute inset-0 bg-black/80 backdrop-blur-sm"
+              onClick={() => !isDeleting && setItemToDelete(null)}
+            />
+            <motion.div 
+              initial={{ scale: 0.9, opacity: 0, y: 20 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.9, opacity: 0, y: 20 }}
+              className="relative bg-white w-full max-w-sm rounded-xl overflow-hidden shadow-2xl border border-gray-200"
+            >
+              <div className="p-6 text-center space-y-4">
+                <div className="w-16 h-16 bg-red-100 text-red-600 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <Trash2 size={32} />
+                </div>
+                <h3 className="text-xl font-black text-black uppercase tracking-tight">Delete Item?</h3>
+                <p className="text-sm text-gray-500 font-medium">
+                  This legendary creation will be permanently removed from the marketplace. This action cannot be undone.
+                </p>
+                
+                <div className="flex flex-col gap-3 pt-4">
+                  <button 
+                    onClick={handleDeleteItem}
+                    disabled={isDeleting}
+                    className="w-full py-4 bg-red-600 text-white font-black rounded-lg uppercase tracking-widest hover:bg-red-700 transition-all flex items-center justify-center gap-2 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {isDeleting ? (
+                      <>
+                        <div className="w-4 h-4 border-2 border-white/20 border-t-white rounded-full animate-spin" />
+                        <span>DELETING...</span>
+                      </>
+                    ) : (
+                      'YES, DELETE PERMANENTLY'
+                    )}
+                  </button>
+                  <button 
+                    onClick={() => setItemToDelete(null)}
+                    disabled={isDeleting}
+                    className="w-full py-4 bg-gray-100 text-brand-dim font-black rounded-lg uppercase tracking-widest hover:bg-gray-200 transition-all active:scale-95 disabled:opacity-50"
+                  >
+                    CANCEL
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
@@ -2694,14 +2788,18 @@ const ItemCard: React.FC<{
   item: MarketplaceItem; 
   onBuy: () => void; 
   onClick: (item: MarketplaceItem) => void;
+  onDelete?: (itemId: string) => void;
   owned: boolean;
   isOwnerSession: boolean;
+  isAdminUser?: boolean;
 }> = ({ 
   item, 
   onBuy, 
   onClick,
+  onDelete,
   owned,
-  isOwnerSession
+  isOwnerSession,
+  isAdminUser
 }) => {
   const isLimited = item.type === 'Limited' || item.type === 'LimitedU';
 
@@ -2793,17 +2891,27 @@ const ItemCard: React.FC<{
           </div>
         </div>
 
-        <div className="pt-3">
+        <div className="pt-3 flex gap-2">
           <button 
             disabled={owned}
             onClick={(e) => { e.stopPropagation(); onBuy(); }}
             className={`
-              w-full py-2 rounded-lg font-black text-[9px] uppercase tracking-widest transition-all
+              flex-grow py-2 rounded-lg font-black text-[9px] uppercase tracking-widest transition-all
               ${owned ? 'bg-gray-100 text-brand-dim' : 'bg-brand-neon text-white shadow-lg shadow-brand-neon/20 hover:brightness-110 active:scale-95'}
             `}
           >
             {owned ? 'OWNED' : 'PURCHASE'}
           </button>
+          
+          {(isAdminUser || item.creatorId === 'FIX_ME_LATER') && onDelete && (
+            <button
+              onClick={(e) => { e.stopPropagation(); onDelete(item.id); }}
+              className="p-2 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 transition-colors"
+              title="Quick Delete"
+            >
+              <Trash2 size={14} />
+            </button>
+          )}
         </div>
       </div>
     </motion.div>
