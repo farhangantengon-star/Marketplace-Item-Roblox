@@ -1988,7 +1988,7 @@ export default function App() {
       {/* Topup Modal */}
       <AnimatePresence>
         {showTopupModal && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="fixed inset-0 z-[999] flex items-center justify-center p-4">
             <motion.div 
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
@@ -1998,13 +1998,13 @@ export default function App() {
                 setShowCheckout(false);
                 setPaymentStep('selection');
               }}
-              className="absolute inset-0 bg-black/90 backdrop-blur-md"
+              className="absolute inset-0 bg-black/90"
             />
             <motion.div 
               initial={{ scale: 0.9, opacity: 0, y: 20 }}
               animate={{ scale: 1, opacity: 1, y: 0 }}
               exit={{ scale: 0.9, opacity: 0, y: 20 }}
-              className="relative bg-white w-full max-w-lg rounded-xl shadow-2xl overflow-hidden border border-gray-100 flex flex-col max-h-[90vh]"
+              className="relative bg-white text-slate-900 w-full max-w-lg rounded-xl shadow-2xl overflow-hidden border border-gray-100 flex flex-col max-h-[90vh]"
             >
               {paymentStep === 'selection' && (
                 <>
@@ -2289,19 +2289,19 @@ export default function App() {
       {/* Create UGC Modal */}
       <AnimatePresence>
         {isCreateUGCModalOpen && (
-          <div className="fixed inset-0 z-[120] flex items-center justify-center p-4">
+          <div className="fixed inset-0 z-[997] flex items-center justify-center p-4">
             <motion.div 
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               onClick={() => setIsCreateUGCModalOpen(false)}
-              className="absolute inset-0 bg-black/80 backdrop-blur-md"
+              className="absolute inset-0 bg-black/80"
             />
             <motion.div 
               initial={{ scale: 0.9, opacity: 0, y: 30 }}
               animate={{ scale: 1, opacity: 1, y: 0 }}
               exit={{ scale: 0.9, opacity: 0, y: 30 }}
-              className="relative bg-white w-full max-w-md rounded-xl overflow-hidden shadow-2xl border-4 border-[#212121]"
+              className="relative bg-white text-slate-900 w-full max-w-md rounded-xl overflow-hidden shadow-2xl border-4 border-[#212121]"
             >
               <div className="bg-[#212121] p-4 flex items-center justify-between text-white">
                 <div className="flex items-center gap-2">
@@ -2481,19 +2481,19 @@ export default function App() {
       </AnimatePresence>
       <AnimatePresence>
         {sellingItem && (
-          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+          <div className="fixed inset-0 z-[994] flex items-center justify-center p-4">
             <motion.div 
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               onClick={() => setSellingItem(null)}
-              className="absolute inset-0 bg-black/80 backdrop-blur-sm"
+              className="absolute inset-0 bg-black/80"
             />
             <motion.div 
               initial={{ scale: 0.9, opacity: 0, y: 20 }}
               animate={{ scale: 1, opacity: 1, y: 0 }}
               exit={{ scale: 0.9, opacity: 0, y: 20 }}
-              className="relative bg-white w-full max-w-sm rounded overflow-hidden shadow-2xl border border-gray-200"
+              className="relative bg-white text-slate-900 w-full max-w-sm rounded overflow-hidden shadow-2xl border border-gray-200"
             >
               <div className="p-4 border-b flex items-center justify-between bg-gray-50">
                 <h3 className="text-sm font-black text-brand-dim uppercase tracking-wider">Sell Item</h3>
@@ -2563,7 +2563,7 @@ export default function App() {
         )}
 
         {showPurchaseConfirmation && buyingItem && (
-          <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
+          <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
             <motion.div 
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
@@ -2572,13 +2572,13 @@ export default function App() {
                 setShowPurchaseConfirmation(false);
                 setBuyingItem(null);
               }}
-              className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+              className="absolute inset-0 bg-black/90"
             />
             <motion.div 
               initial={{ scale: 0.9, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.9, opacity: 0 }}
-              className="relative bg-[#f5f5f5] w-full max-w-lg rounded-xl shadow-[0_20px_50px_rgba(0,0,0,0.3)] overflow-hidden flex flex-col border border-white/20"
+              className="relative bg-[#ffffff] text-slate-900 w-full max-w-lg rounded-xl shadow-2xl overflow-hidden flex flex-col border-2 border-slate-300"
             >
               {/* Modal Header */}
               <div className="h-14 bg-white border-b flex items-center px-6">
@@ -2631,19 +2631,19 @@ export default function App() {
       {/* Roblox Chat Modal */}
       <AnimatePresence>
         {isRobloxChatOpen && (
-          <div className="fixed inset-0 z-[150] flex items-center justify-center p-4">
+          <div className="fixed inset-0 z-[995] flex items-center justify-center p-4">
             <motion.div 
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               onClick={() => setIsRobloxChatOpen(false)}
-              className="absolute inset-0 bg-black/80 backdrop-blur-md"
+              className="absolute inset-0 bg-black/90"
             />
             <motion.div 
               initial={{ scale: 0.9, opacity: 0, y: 20 }}
               animate={{ scale: 1, opacity: 1, y: 0 }}
               exit={{ scale: 0.9, opacity: 0, y: 20 }}
-              className="relative w-full max-w-lg bg-[#f2f4f5] rounded-xl shadow-2xl overflow-hidden flex flex-col h-[600px] border border-white/20"
+              className="relative w-full max-w-lg bg-[#f2f4f5] text-slate-900 rounded-xl shadow-2xl overflow-hidden flex flex-col h-[600px] border-2 border-slate-300"
             >
               <div className="h-16 bg-[#212121] flex items-center justify-between px-6 shrink-0">
                 <div className="flex items-center gap-3">
@@ -2721,19 +2721,19 @@ export default function App() {
 
       <AnimatePresence>
         {itemToDelete && (
-          <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4">
+          <div className="fixed inset-0 z-[10000] flex items-center justify-center p-4">
             <motion.div 
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="absolute inset-0 bg-black/80 backdrop-blur-sm"
+              className="absolute inset-0 bg-black/95"
               onClick={() => !isDeleting && setItemToDelete(null)}
             />
             <motion.div 
               initial={{ scale: 0.9, opacity: 0, y: 20 }}
               animate={{ scale: 1, opacity: 1, y: 0 }}
               exit={{ scale: 0.9, opacity: 0, y: 20 }}
-              className="relative bg-white w-full max-w-sm rounded-xl overflow-hidden shadow-2xl border border-gray-200"
+              className="relative bg-white text-slate-950 w-full max-w-sm rounded-xl overflow-hidden shadow-2xl border-2 border-slate-300"
             >
               <div className="p-6 text-center space-y-4">
                 <div className="w-16 h-16 bg-red-100 text-red-600 rounded-full flex items-center justify-center mx-auto mb-4">
