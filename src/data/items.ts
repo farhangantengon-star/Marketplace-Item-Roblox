@@ -3,6 +3,19 @@ import { MarketplaceItem } from '../types';
 export const INITIAL_ITEMS: MarketplaceItem[] = [
   // --- LIMITED U & LIMITED ---
   {
+    id: 'fiery-horns',
+    name: 'Fiery Horns of the Netherworld',
+    creator: 'Roblox',
+    type: 'LimitedU',
+    price: 2860000,
+    initialPrice: 50000,
+    stock: 2,
+    initialStock: 10,
+    soldCount: 8,
+    category: 'Hat',
+    imageUrl: 'https://i.ibb.co.com/33fTCkd/image.png',
+  },
+  {
     id: '1',
     name: 'Red Valkyrie',
     creator: 'Roblox',
