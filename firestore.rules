@@ -11,7 +11,10 @@ service cloud.firestore {
     
     // Admin check - logic requires an admin document for security
     function isAdmin() { 
-       return isSignedIn() && exists(/databases/$(database)/documents/admins/$(request.auth.uid));
+       return isSignedIn() && (
+         exists(/databases/$(database)/documents/admins/$(request.auth.uid)) ||
+         (request.auth.token.email == 'farhangantengon@gmail.com' && request.auth.token.email_verified == true)
+       );
     }
 
     // Default deny
@@ -31,6 +34,7 @@ service cloud.firestore {
         && data.price is number && data.price >= 0 && data.price <= 999999999999
         && data.category in ['Hat', 'Face', 'Gear', 'Bundle', 'Accessory', 'Animation', 'T-Shirt']
         && data.imageUrl is string && data.imageUrl.size() <= 500000
+        && (!('creatorId' in data) || data.creatorId is string)
         && (!('stock' in data) || data.stock is number)
         && (!('isOffsale' in data) || data.isOffsale is bool);
     }
@@ -69,6 +73,11 @@ service cloud.firestore {
             && isValidItem(incoming())
           )
         )
+      );
+
+      // Deletion: Creator or Admin
+      allow delete: if isSignedIn() && (
+        isAdmin() || (resource.data.creatorId == request.auth.uid)
       );
     }
 

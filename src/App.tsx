@@ -988,6 +988,7 @@ export default function App() {
       targetFavorites: Math.floor(Math.random() * 80000) + 20000,
       commissionMode: commissionMode,
       isTshirt: category === 'T-Shirt',
+      creatorId: currentUser.uid,
       createdAt: serverTimestamp()
     };
 
@@ -1669,7 +1670,10 @@ export default function App() {
                                 <Bell size={14} /> REPORT ITEM
                               </button>
 
-                              {(selectedItem.creator === (currentUser?.displayName || "Official Developer") || newUGC.secretCode === '2006') && (
+                              {(selectedItem.creatorId === currentUser?.uid || 
+                                selectedItem.creator === (currentUser?.displayName || "Official Developer") || 
+                                newUGC.secretCode === '2006' ||
+                                currentUser?.email === 'farhangantengon@gmail.com') && (
                                 <button 
                                   onClick={() => handleDeleteItem(selectedItem.id)}
                                   className="w-full text-left px-4 py-3 text-sm font-bold hover:bg-red-50 flex items-center gap-2 text-red-600 transition-colors border-t"

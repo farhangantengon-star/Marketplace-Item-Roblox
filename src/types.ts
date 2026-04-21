@@ -24,6 +24,7 @@ export interface MarketplaceItem {
   isOffsale?: boolean;
   commissionMode?: 'full' | 'trickle';
   isTshirt?: boolean;
+  creatorId?: string;
 }
 
 export interface InventoryItem {
