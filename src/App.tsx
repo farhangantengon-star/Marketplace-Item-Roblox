@@ -256,6 +256,12 @@ export default function App() {
   const [showCheckout, setShowCheckout] = useState(false);
   const [selectedPack, setSelectedPack] = useState<{amount: number, price: string, hasCrown?: boolean} | null>(null);
   const [paymentStep, setPaymentStep] = useState<'selection' | 'card' | 'processing' | 'success'>('selection');
+  const [cardDetails, setCardDetails] = useState({
+    number: '',
+    expiry: '',
+    cvv: '',
+    holder: ''
+  });
   const [showBalance, setShowBalance] = useState(false);
   const [itemToDelete, setItemToDelete] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -2162,65 +2168,162 @@ export default function App() {
               )}
 
               {paymentStep === 'card' && selectedPack && (
-                <div className="p-8 space-y-8">
-                  <div className="text-center space-y-2">
-                    <div className="w-16 h-10 bg-[#FFD700] rounded-md mx-auto flex items-center justify-center border border-black/10 shadow-sm relative overflow-hidden">
-                       <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-br from-white/20 to-transparent"></div>
-                       <CreditCard className="text-[#333] w-6 h-6" />
-                    </div>
-                    <h3 className="text-xl font-black">Card Master Checkout</h3>
-                    <p className="text-xs font-bold text-brand-dim uppercase tracking-wider">Secure Payment Processing</p>
+                <div className="p-6 md:p-8 space-y-6 overflow-y-auto custom-scrollbar-thin">
+                  <div className="text-center space-y-1">
+                    <h3 className="text-xl font-black text-slate-900 leading-tight">Mastercard Payment</h3>
+                    <p className="text-[10px] font-bold text-brand-dim uppercase tracking-widest opacity-60 italic">Safe & Instant Simulation</p>
                   </div>
 
-                  <div className="bg-gradient-to-br from-[#1a1c1e] to-[#2c2f33] p-6 rounded-2xl shadow-xl text-white space-y-8 relative overflow-hidden aspect-[1.586/1]">
-                     <div className="absolute top-0 right-0 w-32 h-32 bg-white/5 rounded-full -mr-16 -mt-16 blur-2xl"></div>
-                     <div className="flex justify-between items-start">
-                        <div className="w-12 h-10 bg-gradient-to-br from-yellow-200 to-yellow-500 rounded-lg shadow-inner"></div>
+                  {/* Dynamic Visual Card */}
+                  <motion.div 
+                    initial={{ rotateY: -10, opacity: 0 }}
+                    animate={{ rotateY: 0, opacity: 1 }}
+                    className="relative w-full aspect-[1.586/1] max-w-[340px] mx-auto group perspective-1000"
+                  >
+                    <div className="absolute inset-0 bg-gradient-to-br from-[#1a1c2e] via-[#2c3e50] to-[#000000] rounded-2xl shadow-2xl overflow-hidden p-6 text-white border border-white/10 ring-1 ring-white/5">
+                      {/* Decorative elements */}
+                      <div className="absolute top-0 right-0 w-48 h-48 bg-brand-neon/10 rounded-full -mr-24 -mt-24 blur-3xl opacity-20"></div>
+                      <div className="absolute bottom-0 left-0 w-32 h-32 bg-[#ff0000]/10 rounded-full -ml-16 -mb-16 blur-2xl opacity-10"></div>
+                      
+                      <div className="flex justify-between items-start relative z-10">
+                        {/* Chip */}
+                        <div className="w-12 h-9 bg-gradient-to-br from-yellow-200 via-yellow-400 to-yellow-600 rounded-md shadow-inner border border-yellow-500/20 flex flex-col justify-between p-1.5 opacity-80">
+                           <div className="h-px bg-black/10 w-full"></div>
+                           <div className="h-px bg-black/10 w-full ml-1"></div>
+                           <div className="h-px bg-black/10 w-full"></div>
+                        </div>
+                        
                         <div className="text-right">
-                           <p className="text-[10px] font-black tracking-widest opacity-40">CARD MASTER</p>
-                           <div className="flex gap-1 mt-1">
-                              <div className="w-6 h-6 bg-red-500 rounded-full opacity-80"></div>
-                              <div className="w-6 h-6 bg-yellow-500 rounded-full -ml-3 opacity-80"></div>
+                           <p className="text-[8px] font-black tracking-widest text-brand-neon">ROBLOX PREFERRED</p>
+                           <div className="flex -space-x-4 mt-2 justify-end">
+                              <div className="w-8 h-8 bg-[#eb001b]/90 rounded-full blur-[0.5px]"></div>
+                              <div className="w-8 h-8 bg-[#f79e1b]/90 rounded-full blur-[0.5px]"></div>
+                           </div>
+                        </div>
+                      </div>
+
+                      <div className="mt-8 space-y-2 relative z-10">
+                        <p className="text-[10px] font-black opacity-40 tracking-widest uppercase italic border-l-2 border-brand-neon pl-2">Card Number</p>
+                        <p className="text-lg md:text-xl font-black tracking-[0.15em] font-mono leading-none h-6 truncate">
+                          {cardDetails.number || '•••• •••• •••• ••••'}
+                        </p>
+                      </div>
+
+                      <div className="mt-8 flex justify-between items-end relative z-10">
+                        <div className="space-y-1">
+                           <p className="text-[8px] font-bold opacity-30 tracking-widest uppercase italic">Card Holder</p>
+                           <p className="text-xs font-black tracking-widest uppercase text-brand-neon truncate max-w-[150px]">
+                              {cardDetails.holder || 'YOUR NAME'}
+                           </p>
+                        </div>
+                        <div className="flex gap-4">
+                          <div className="space-y-1 text-right">
+                             <p className="text-[8px] font-bold opacity-30 tracking-widest uppercase italic">Expires</p>
+                             <p className="text-xs font-black tracking-widest leading-none">
+                                {cardDetails.expiry || 'MM/YY'}
+                             </p>
+                          </div>
+                          <div className="space-y-1 text-right">
+                             <p className="text-[8px] font-bold opacity-30 tracking-widest uppercase italic">CVV</p>
+                             <p className="text-xs font-black tracking-widest leading-none">
+                                {cardDetails.cvv || '•••'}
+                             </p>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </motion.div>
+
+                  {/* Input Fields */}
+                  <div className="grid grid-cols-1 gap-4 bg-gray-50/50 p-4 rounded-2xl border border-gray-100">
+                    <div className="space-y-1.5 flex-1">
+                       <label className="text-[10px] font-black text-brand-dim uppercase tracking-widest ml-1">Card Number (Any)</label>
+                       <div className="relative">
+                          <div className="absolute left-3 top-1/2 -translate-y-1/2 text-brand-dim"><CreditCard size={16} /></div>
+                          <input 
+                            type="text"
+                            placeholder="4532 7189 0012 8847"
+                            maxLength={19}
+                            className="w-full pl-10 pr-4 py-2.5 bg-white border-2 border-gray-100 rounded-xl font-bold text-sm focus:border-brand-neon outline-none transition-all"
+                            value={cardDetails.number}
+                            onChange={(e) => {
+                              let value = e.target.value.replace(/\s+/g, '').replace(/[^0-9]/gi, '');
+                              let formatted = value.match(/.{1,4}/g)?.join(' ') || value;
+                              setCardDetails(prev => ({ ...prev, number: formatted }));
+                            }}
+                          />
+                       </div>
+                    </div>
+
+                    <div className="flex flex-col md:flex-row gap-4">
+                       <div className="space-y-1.5 flex-1">
+                          <label className="text-[10px] font-black text-brand-dim uppercase tracking-widest ml-1">Holder Name</label>
+                          <input 
+                            type="text"
+                            placeholder="John Doe"
+                            className="w-full px-4 py-2.5 bg-white border-2 border-gray-100 rounded-xl font-bold text-sm focus:border-brand-neon outline-none transition-all uppercase"
+                            value={cardDetails.holder}
+                            onChange={(e) => setCardDetails(prev => ({ ...prev, holder: e.target.value }))}
+                          />
+                       </div>
+                       <div className="flex gap-4">
+                          <div className="space-y-1.5 w-24">
+                              <label className="text-[10px] font-black text-brand-dim uppercase tracking-widest ml-1">Expiry</label>
+                              <input 
+                                type="text"
+                                placeholder="MM/YY"
+                                maxLength={5}
+                                className="w-full px-3 py-2.5 bg-white border-2 border-gray-100 rounded-xl font-bold text-sm focus:border-brand-neon outline-none transition-all text-center"
+                                value={cardDetails.expiry}
+                                onChange={(e) => {
+                                  let value = e.target.value.replace(/\//g, '').replace(/[^0-9]/gi, '');
+                                  if (value.length > 2) value = value.slice(0, 2) + '/' + value.slice(2, 4);
+                                  setCardDetails(prev => ({ ...prev, expiry: value }));
+                                }}
+                              />
+                          </div>
+                          <div className="space-y-1.5 w-20">
+                              <label className="text-[10px] font-black text-brand-dim uppercase tracking-widest ml-1">PIN/CVV</label>
+                              <input 
+                                type="password"
+                                placeholder="•••"
+                                maxLength={3}
+                                className="w-full px-3 py-2.5 bg-white border-2 border-gray-100 rounded-xl font-bold text-sm focus:border-brand-neon outline-none transition-all text-center"
+                                value={cardDetails.cvv}
+                                onChange={(e) => setCardDetails(prev => ({ ...prev, cvv: e.target.value.replace(/[^0-9]/gi, '') }))}
+                              />
+                          </div>
+                       </div>
+                    </div>
+                  </div>
+
+                  <div className="border-t border-dashed border-gray-200 pt-4 mt-2">
+                     <div className="flex justify-between items-center bg-gray-900 text-white p-4 rounded-xl shadow-lg">
+                        <div className="flex flex-col">
+                           <span className="text-[10px] font-black text-white/50 uppercase tracking-widest">Amount to Deduct</span>
+                           <span className="text-xl font-black text-brand-neon">{selectedPack.price}</span>
+                        </div>
+                        <div className="flex flex-col text-right">
+                           <span className="text-[10px] font-black text-white/50 uppercase tracking-widest">Credits</span>
+                           <div className="flex items-center gap-1 justify-end">
+                              <RobuxIcon className="w-4 h-4" />
+                              <span className="text-lg font-black">{selectedPack.amount.toLocaleString()}</span>
                            </div>
                         </div>
                      </div>
-                     <div className="space-y-1">
-                        <p className="text-xs font-bold opacity-30 tracking-widest uppercase italic">Card Number</p>
-                        <p className="text-2xl font-black tracking-[0.2em] font-mono">4532 • 7189 • 0012 • 8847</p>
-                     </div>
-                     <div className="flex justify-between items-end">
-                        <div className="space-y-1">
-                           <p className="text-[8px] font-bold opacity-30 tracking-widest uppercase italic">Card Holder</p>
-                           <p className="text-sm font-black tracking-widest uppercase">ROBLOX EXPLORER</p>
-                        </div>
-                        <div className="space-y-1 text-right">
-                           <p className="text-[8px] font-bold opacity-30 tracking-widest uppercase italic">Expires</p>
-                           <p className="text-sm font-black tracking-widest uppercase">12 / 29</p>
-                        </div>
-                     </div>
                   </div>
 
-                  <div className="space-y-4">
-                     <div className="flex justify-between items-center text-sm border-b border-dashed pb-2">
-                        <span className="font-bold text-brand-dim uppercase tracking-wider">Purchase</span>
-                        <span className="font-black">{selectedPack.amount.toLocaleString()} ROBUX</span>
-                     </div>
-                     <div className="flex justify-between items-center text-sm">
-                        <span className="font-bold text-brand-dim uppercase tracking-wider">Total Charge</span>
-                        <span className="font-black text-xl text-brand-neon">{selectedPack.price}</span>
-                     </div>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="flex flex-col sm:flex-row gap-3 pt-2">
                     <button 
                       onClick={() => setPaymentStep('processing')}
-                      className="py-4 bg-brand-neon text-white font-black rounded-xl shadow-lg hover:brightness-110 active:scale-95 transition-all text-sm uppercase tracking-widest"
+                      className="flex-1 py-4 bg-brand-neon text-white font-black rounded-xl shadow-xl shadow-brand-neon/20 hover:brightness-110 active:scale-95 transition-all text-sm uppercase tracking-widest flex items-center justify-center gap-2"
                     >
-                      Pay Now
+                      <Check size={18} />
+                      Authorize & Top Up
                     </button>
                     <button 
                       onClick={() => setPaymentStep('selection')}
-                      className="py-4 bg-gray-100 text-gray-500 font-black rounded-xl hover:bg-gray-200 transition-all text-sm uppercase tracking-widest"
+                      className="py-4 px-8 bg-gray-100 text-gray-400 font-black rounded-xl hover:bg-gray-200 hover:text-gray-500 transition-all text-sm uppercase tracking-widest"
                     >
                       Back
                     </button>
